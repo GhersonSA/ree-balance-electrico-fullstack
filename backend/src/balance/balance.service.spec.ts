@@ -23,7 +23,7 @@ const mockReeClient = () => ({
 const VALID_QUERY = {
   startDate: '2024-01-01T00:00:00.000Z',
   endDate: '2024-01-02T00:00:00.000Z',
-  timeTrunc: 'hour' as const,
+  timeTrunc: 'day' as const,
 };
 
 const REE_PAYLOAD: Record<string, unknown> = {
@@ -104,6 +104,53 @@ describe('BalanceService', () => {
 
       expect(result.inserted).toBe(0);
       expect(balanceRepo.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should parse points from nested attributes.content values', async () => {
+      const nestedPayload = {
+        included: [
+          {
+            type: 'Renovable',
+            attributes: {
+              title: 'Renovable',
+              values: [],
+              content: [
+                {
+                  type: 'Hidraulica',
+                  attributes: {
+                    title: 'Hidraulica',
+                    values: [
+                      {
+                        datetime: '2024-01-01T00:00:00.000Z',
+                        value: 100.5,
+                        percentage: 0.5,
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      reeClient.fetchBalance.mockResolvedValue(nestedPayload);
+      balanceRepo.upsert.mockResolvedValue(undefined);
+      ingestLogRepo.save.mockResolvedValue(undefined);
+
+      const result = await service.syncRange(VALID_QUERY);
+
+      expect(result.inserted).toBe(1);
+      expect(balanceRepo.upsert).toHaveBeenCalledTimes(1);
+      expect(balanceRepo.upsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            indicatorType: 'Hidraulica',
+            indicatorName: 'Hidraulica',
+          }),
+        ]),
+        expect.any(Object),
+      );
     });
 
     it('should return stale=true and lastSyncAt from last log when REE is unavailable', async () => {
