@@ -36,5 +36,17 @@ services:
     ports:
       - '3000:3000'
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    container_name: ree-balance-frontend
+    depends_on:
+      - backend
+    ports:
+      - '4173:80'
+
 volumes:
   postgres_data:
