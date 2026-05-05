@@ -1,16 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Repository } from 'typeorm';
 import { DateRangeQueryDto } from './dto/date-range-query.dto';
 import { BalancePoint } from './entities/balance-point.entity';
 import { ReeIngestLog } from './entities/ree-ingest-log.entity';
-import { ReeClient } from '../ree/ree.client';
+import { ReeClient, ReeApiUnavailableError } from '../ree/ree.client';
 
 interface ParsedPoint {
   timestamp: Date;
@@ -21,6 +16,12 @@ interface ParsedPoint {
   unit: string | null;
   timeTrunc: string;
   source: string;
+}
+
+export interface SyncResult {
+  inserted: number;
+  stale: boolean;
+  lastSyncAt: Date | null;
 }
 
 @Injectable()
@@ -47,7 +48,7 @@ export class BalanceService {
     });
   }
 
-  async syncRange(query: DateRangeQueryDto): Promise<{ inserted: number }> {
+  async syncRange(query: DateRangeQueryDto): Promise<SyncResult> {
     this.assertDateRange(query.startDate, query.endDate);
 
     const timeTrunc = query.timeTrunc ?? 'day';
@@ -76,8 +77,9 @@ export class BalanceService {
         payload,
       });
 
-      return { inserted: points.length };
+      return { inserted: points.length, stale: false, lastSyncAt: new Date() };
     } catch (error) {
+      const isReeDown = error instanceof ReeApiUnavailableError;
       const message = error instanceof Error ? error.message : 'Unknown error';
 
       await this.ingestLogRepo.save({
@@ -92,9 +94,20 @@ export class BalanceService {
         `REE sync failed for ${query.startDate} - ${query.endDate}: ${message}`,
       );
 
-      throw new InternalServerErrorException(
-        'Could not sync data from REE. Try again later.',
-      );
+      if (isReeDown) {
+        const lastSuccessLog = await this.ingestLogRepo.findOne({
+          where: { status: 'success' },
+          order: { fetchedAt: 'DESC' },
+        });
+
+        return {
+          inserted: 0,
+          stale: true,
+          lastSyncAt: lastSuccessLog?.fetchedAt ?? null,
+        };
+      }
+
+      throw error;
     }
   }
 
@@ -124,7 +137,9 @@ export class BalanceService {
     const end = new Date(endDate);
 
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new BadRequestException('startDate and endDate must be valid ISO dates.');
+      throw new BadRequestException(
+        'startDate and endDate must be valid ISO dates.',
+      );
     }
 
     if (start > end) {
@@ -142,7 +157,8 @@ export class BalanceService {
       const type = String(item.type ?? 'unknown');
       const attributes = (item.attributes as Record<string, unknown>) ?? {};
       const title = String(attributes.title ?? type);
-      const values = (attributes.values as Array<Record<string, unknown>>) ?? [];
+      const values =
+        (attributes.values as Array<Record<string, unknown>>) ?? [];
 
       return values
         .map((valueItem) => {
@@ -161,7 +177,9 @@ export class BalanceService {
             indicatorName: title,
             value: String(value),
             percentage:
-              valueItem.percentage != null ? String(valueItem.percentage) : null,
+              valueItem.percentage != null
+                ? String(valueItem.percentage)
+                : null,
             unit: valueItem.unit ? String(valueItem.unit) : null,
             timeTrunc,
             source: 'ree',
