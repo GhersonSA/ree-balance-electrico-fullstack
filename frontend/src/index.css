@@ -1,111 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Titillium+Web:wght@600;700&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --ree-red: #2db3d6;
+  --ree-red-strong: #1f9ec0;
+  --ree-blue: #103a5d;
+  --ree-blue-soft: #3bbfe0;
+  --bg: #f3f6fa;
+  --surface: #ffffff;
+  --surface-alt: #f8fbff;
+  --text: #1f2d3d;
+  --text-soft: #5e6d7c;
+  --border: #d8e2ee;
+  --ok: #1a8e52;
+  --warn: #c62828;
+  --shadow: 0 12px 28px rgba(8, 35, 60, 0.08);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  font-family: 'Barlow', 'Segoe UI', sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background:
+    radial-gradient(circle at 0% 0%, #ffffff 0%, #f6f9fc 42%, #edf3f9 100%);
+  color: var(--text);
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+body[data-theme='dark'] {
+  background:
+    radial-gradient(circle at 0% 0%, #1d3047 0%, #15263a 46%, #0f1b2b 100%);
+  color: #e5edf5;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+/* ── Scrollbar personalizada ── */
+:root::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 14px;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+:root::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: #ffffff;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+:root::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: #b0bec8;
+  border-radius: 0;
+}
+
+:root::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: #8a9daf;
+}
+
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #2db3d6 #ffffff;
+}
+
+/* Dark mode */
+html:has(body[data-theme='dark'])::-webkit-scrollbar-track,
+body[data-theme='dark']::-webkit-scrollbar-track,
+body[data-theme='dark'] *::-webkit-scrollbar-track {
+  background: #15263a;
+}
+
+html:has(body[data-theme='dark'])::-webkit-scrollbar-thumb,
+body[data-theme='dark']::-webkit-scrollbar-thumb,
+body[data-theme='dark'] *::-webkit-scrollbar-thumb {
+  background: #5dc89e;
+}
+
+html:has(body[data-theme='dark'])::-webkit-scrollbar-thumb:hover,
+body[data-theme='dark']::-webkit-scrollbar-thumb:hover,
+body[data-theme='dark'] *::-webkit-scrollbar-thumb:hover {
+  background: #4db890;
+}
+
+html:has(body[data-theme='dark']),
+body[data-theme='dark'],
+body[data-theme='dark'] * {
+  scrollbar-color: #5dc89e #15263a;
 }
