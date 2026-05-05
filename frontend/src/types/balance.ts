@@ -16,4 +16,4 @@ export interface SyncResult {
   lastSyncAt: string | null;
 }
 
-export type TimeTrunc = 'hour' | 'day' | 'month';
+export type TimeTrunc = 'day' | 'month';

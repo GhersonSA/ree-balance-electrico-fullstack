@@ -1,8 +1,9 @@
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,29 +16,38 @@ interface Props {
   data: BalancePoint[];
 }
 
-type ChartRow = {
-  label: string;
-  [indicatorName: string]: number | string;
-};
+// Priority indicators to display (others are hidden to avoid visual noise)
+const PRIORITY_KEYWORDS = [
+  { keyword: 'demanda',            color: '#22c55e', dash: '0' },
+  { keyword: 'renovable',          color: '#a855f7', dash: '0' },
+  { keyword: 'no renovable',       color: '#ef4444', dash: '4 2' },
+  { keyword: 'nuclear',            color: '#a855f7', dash: '0' },
+  { keyword: 'eólica',             color: '#06b6d4', dash: '0' },
+  { keyword: 'hidráulica',         color: '#3b82f6', dash: '0' },
+  { keyword: 'solar fotovoltaica', color: '#f59e0b', dash: '0' },
+  { keyword: 'ciclo combinado',    color: '#64748b', dash: '4 2' },
+  { keyword: 'carbón',             color: '#a16207', dash: '4 2' },
+];
 
-const INDICATOR_COLORS: Record<string, string> = {
-  'Renovable': '#22c55e',
-  'No renovable': '#ef4444',
-  'Nuclear': '#a855f7',
-  'Hidráulica': '#3b82f6',
-  'Eólica': '#06b6d4',
-  'Solar fotovoltaica': '#f59e0b',
-  'Solar térmica': '#f97316',
-  'Ciclo combinado': '#64748b',
-  'Carbón': '#78716c',
-  'Fuel + Gas': '#d97706',
-};
+function getPriorityConfig(name: string) {
+  const lower = name.toLowerCase();
+  return PRIORITY_KEYWORDS.find(({ keyword }) => lower.includes(keyword)) ?? null;
+}
 
-function getFillColor(indicatorName: string): string {
-  for (const [key, color] of Object.entries(INDICATOR_COLORS)) {
-    if (indicatorName.toLowerCase().includes(key.toLowerCase())) return color;
-  }
-  return '#94a3b8';
+// renovable, no-renovable or demanda
+function classifyIndicator(name: string): 'renovable' | 'no-renovable' | 'demanda' | null {
+  const lower = name.toLowerCase();
+  if (lower.includes('demanda')) return 'demanda';
+  if (lower.includes('renovable') && !lower.includes('no renovable') && !lower.includes('no renovables')) return 'renovable';
+  if (lower.includes('no renovable')) return 'no-renovable';
+  return null;
+}
+
+function computeTickInterval(totalPoints: number): number {
+  if (totalPoints <= 30) return 0;
+  if (totalPoints <= 90) return Math.ceil(totalPoints / 15);
+  if (totalPoints <= 365) return Math.ceil(totalPoints / 12);
+  return Math.ceil(totalPoints / 10);
 }
 
 export function BalanceChart({ data }: Props) {
@@ -49,36 +59,82 @@ export function BalanceChart({ data }: Props) {
     );
   }
 
-  // Group by timestamp → { timestamp, [indicatorName]: value }
-  const byTimestamp = new Map<string, ChartRow>();
-  const indicatorNames = new Set<string>();
+  // renovable, no-renovable, demanda
+  type AggRow = { label: string; ts: string; renovable: number; 'no renovable': number; demanda: number };
+  const byTimestamp = new Map<string, AggRow>();
 
   for (const point of data) {
-    const label = dayjs(point.timestamp).format('DD/MM HH:mm');
-    if (!byTimestamp.has(label)) byTimestamp.set(label, { label });
-    byTimestamp.get(label)![point.indicatorName] = parseFloat(point.value);
-    indicatorNames.add(point.indicatorName);
+    const ts = point.timestamp;
+    const label = dayjs(ts).format('DD/MM/YY');
+    if (!byTimestamp.has(ts)) {
+      byTimestamp.set(ts, { label, ts, renovable: 0, 'no renovable': 0, demanda: 0 });
+    }
+    const row = byTimestamp.get(ts)!;
+    const cls = classifyIndicator(point.indicatorName);
+    const val = parseFloat(point.value);
+    if (cls === 'renovable') row.renovable = val;
+    else if (cls === 'no-renovable') row['no renovable'] = val;
+    else if (cls === 'demanda') row.demanda = val;
   }
 
-  const chartData = Array.from(byTimestamp.values());
-  const indicators = Array.from(indicatorNames);
+  const chartData = Array.from(byTimestamp.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, row]) => row);
+
+  const tickInterval = computeTickInterval(chartData.length);
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
-      <BarChart data={chartData} margin={{ top: 16, right: 24, left: 0, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-        <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-        <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} unit=" MW" />
-        <Tooltip
-          contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-          labelStyle={{ color: '#e2e8f0' }}
-          itemStyle={{ color: '#94a3b8' }}
+    <ResponsiveContainer width="100%" height={420}>
+      <ComposedChart data={chartData} margin={{ top: 16, right: 24, left: 0, bottom: 8 }}>
+        <defs>
+          <linearGradient id="grad-renovable" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9} />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity={0.4} />
+          </linearGradient>
+          <linearGradient id="grad-norenovable" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity={0.4} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fill: '#64748b', fontSize: 11 }}
+          interval={tickInterval}
+          minTickGap={48}
+          axisLine={{ stroke: '#1e293b' }}
+          tickLine={false}
         />
-        <Legend wrapperStyle={{ color: '#94a3b8', fontSize: 12 }} />
-        {indicators.map((name) => (
-          <Bar key={name} dataKey={name} stackId="a" fill={getFillColor(name)} radius={[2, 2, 0, 0]} />
-        ))}
-      </BarChart>
+        <YAxis
+          tick={{ fill: '#64748b', fontSize: 11 }}
+          unit=" MW"
+          width={78}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}
+          labelStyle={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 4 }}
+          itemStyle={{ fontSize: 12 }}
+          formatter={(value: number, name: string) => [`${value.toLocaleString('es-ES')} MW`, name]}
+        />
+        <Legend
+          wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
+          formatter={(value) => <span style={{ color: '#cbd5e1' }}>{value}</span>}
+        />
+        <Bar dataKey="renovable" name="Renovable" stackId="gen" fill="url(#grad-renovable)" radius={[3, 3, 0, 0]} maxBarSize={18} />
+        <Bar dataKey="no renovable" name="No renovable" stackId="gen" fill="url(#grad-norenovable)" radius={[3, 3, 0, 0]} maxBarSize={18} />
+
+        <Line
+          type="monotone"
+          dataKey="demanda"
+          name="Demanda"
+          stroke="#f8fafc"
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 5, strokeWidth: 0, fill: '#f8fafc' }}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

@@ -44,7 +44,7 @@ export class BalanceService {
     await this.syncRange({
       startDate: start.toISOString(),
       endDate: end.toISOString(),
-      timeTrunc: 'hour',
+      timeTrunc: 'day',
     });
   }
 
@@ -154,38 +154,61 @@ export class BalanceService {
     const included = (payload.included as Array<Record<string, unknown>>) ?? [];
 
     return included.flatMap((item) => {
-      const type = String(item.type ?? 'unknown');
+      const parentType = String(item.type ?? 'unknown');
       const attributes = (item.attributes as Record<string, unknown>) ?? {};
-      const title = String(attributes.title ?? type);
-      const values =
+      const parentTitle = String(attributes.title ?? parentType);
+      const parentValues =
         (attributes.values as Array<Record<string, unknown>>) ?? [];
+      const content =
+        (attributes.content as Array<Record<string, unknown>>) ?? [];
 
-      return values
-        .map((valueItem) => {
-          const datetime = valueItem.datetime
-            ? new Date(String(valueItem.datetime))
-            : null;
-          const value = valueItem.value;
-
-          if (!datetime || Number.isNaN(datetime.getTime()) || value == null) {
-            return null;
-          }
-
+      const sourceNodes: Array<{
+        type: string;
+        title: string;
+        values: Array<Record<string, unknown>>;
+      }> = [
+        { type: parentType, title: parentTitle, values: parentValues },
+        ...content.map((child) => {
+          const childType = String(child.type ?? parentType);
+          const childAttributes =
+            (child.attributes as Record<string, unknown>) ?? {};
           return {
-            timestamp: datetime,
-            indicatorType: type,
-            indicatorName: title,
-            value: String(value),
-            percentage:
-              valueItem.percentage != null
-                ? String(valueItem.percentage)
-                : null,
-            unit: valueItem.unit ? String(valueItem.unit) : null,
-            timeTrunc,
-            source: 'ree',
+            type: childType,
+            title: String(childAttributes.title ?? childType),
+            values:
+              (childAttributes.values as Array<Record<string, unknown>>) ?? [],
           };
-        })
-        .filter((item): item is ParsedPoint => item !== null);
+        }),
+      ];
+
+      return sourceNodes.flatMap((node) =>
+        node.values
+          .map((valueItem) => {
+            const datetime = valueItem.datetime
+              ? new Date(String(valueItem.datetime))
+              : null;
+            const value = valueItem.value;
+
+            if (!datetime || Number.isNaN(datetime.getTime()) || value == null) {
+              return null;
+            }
+
+            return {
+              timestamp: datetime,
+              indicatorType: node.type,
+              indicatorName: node.title,
+              value: String(value),
+              percentage:
+                valueItem.percentage != null
+                  ? String(valueItem.percentage)
+                  : null,
+              unit: valueItem.unit ? String(valueItem.unit) : null,
+              timeTrunc,
+              source: 'ree',
+            };
+          })
+          .filter((parsedItem): parsedItem is ParsedPoint => parsedItem !== null),
+      );
     });
   }
 }

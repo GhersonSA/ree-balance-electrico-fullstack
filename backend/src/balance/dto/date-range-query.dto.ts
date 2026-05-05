@@ -18,7 +18,7 @@ export class DateRangeQueryDto {
     typeof value === 'string' ? value.toLowerCase() : undefined,
   )
   @IsOptional()
-  @IsIn(['hour', 'day', 'month', 'year'])
+  @IsIn(['day', 'month'])
   timeTrunc?: string = 'day';
 
   @IsOptional()
