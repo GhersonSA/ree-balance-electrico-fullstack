@@ -1,7 +1,20 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, retry, timer } from 'rxjs';
+
+const RETRY_COUNT = 2;
+const RETRY_DELAY_MS = 1_000;
+
+export class ReeApiUnavailableError extends Error {
+  constructor(cause?: unknown) {
+    const message =
+      cause instanceof Error ? cause.message : 'REE API unavailable';
+    super(message);
+    this.name = 'ReeApiUnavailableError';
+    this.cause = cause;
+  }
+}
 
 interface ReeFetchParams {
   startDate: string;
@@ -11,6 +24,7 @@ interface ReeFetchParams {
 
 @Injectable()
 export class ReeClient {
+  private readonly logger = new Logger(ReeClient.name);
   private readonly reeUrl: string;
 
   constructor(
@@ -23,17 +37,33 @@ export class ReeClient {
   }
 
   async fetchBalance(params: ReeFetchParams): Promise<Record<string, unknown>> {
-    const response = await firstValueFrom(
-      this.httpService.get(this.reeUrl, {
-        params: {
-          start_date: params.startDate,
-          end_date: params.endDate,
-          time_trunc: params.timeTrunc,
-        },
-        timeout: 15_000,
-      }),
-    );
+    try {
+      const response = await firstValueFrom(
+        this.httpService
+          .get(this.reeUrl, {
+            params: {
+              start_date: params.startDate,
+              end_date: params.endDate,
+              time_trunc: params.timeTrunc,
+            },
+            timeout: 15_000,
+          })
+          .pipe(
+            retry({
+              count: RETRY_COUNT,
+              delay: (error, attempt) => {
+                this.logger.warn(
+                  `REE API attempt ${attempt} failed: ${error instanceof Error ? error.message : String(error)}. Retrying in ${RETRY_DELAY_MS}ms...`,
+                );
+                return timer(RETRY_DELAY_MS);
+              },
+            }),
+          ),
+      );
 
-    return response.data as Record<string, unknown>;
+      return response.data as Record<string, unknown>;
+    } catch (error) {
+      throw new ReeApiUnavailableError(error);
+    }
   }
 }
