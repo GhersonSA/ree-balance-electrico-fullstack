@@ -16,24 +16,6 @@ interface Props {
   data: BalancePoint[];
 }
 
-// Priority indicators to display (others are hidden to avoid visual noise)
-const PRIORITY_KEYWORDS = [
-  { keyword: 'demanda',            color: '#22c55e', dash: '0' },
-  { keyword: 'renovable',          color: '#a855f7', dash: '0' },
-  { keyword: 'no renovable',       color: '#ef4444', dash: '4 2' },
-  { keyword: 'nuclear',            color: '#a855f7', dash: '0' },
-  { keyword: 'eólica',             color: '#06b6d4', dash: '0' },
-  { keyword: 'hidráulica',         color: '#3b82f6', dash: '0' },
-  { keyword: 'solar fotovoltaica', color: '#f59e0b', dash: '0' },
-  { keyword: 'ciclo combinado',    color: '#64748b', dash: '4 2' },
-  { keyword: 'carbón',             color: '#a16207', dash: '4 2' },
-];
-
-function getPriorityConfig(name: string) {
-  const lower = name.toLowerCase();
-  return PRIORITY_KEYWORDS.find(({ keyword }) => lower.includes(keyword)) ?? null;
-}
-
 // renovable, no-renovable or demanda
 function classifyIndicator(name: string): 'renovable' | 'no-renovable' | 'demanda' | null {
   const lower = name.toLowerCase();
@@ -116,7 +98,7 @@ export function BalanceChart({ data }: Props) {
           contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}
           labelStyle={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 4 }}
           itemStyle={{ fontSize: 12 }}
-          formatter={(value: number, name: string) => [`${value.toLocaleString('es-ES')} MW`, name]}
+          formatter={(value, name) => [typeof value === 'number' ? `${value.toLocaleString('es-ES')} MW` : String(value), name as string]}
         />
         <Legend
           wrapperStyle={{ fontSize: 13, paddingTop: 12 }}
