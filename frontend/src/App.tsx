@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import dayjs from 'dayjs';
-import { getBalance, triggerSync } from './api/balance';
 import { BalanceChart } from './components/BalanceChart';
 import { DateRangeSelector } from './components/DateRangeSelector';
 import { SyncStatusBadge } from './components/SyncStatusBadge';
-import type { BalancePoint, TimeTrunc } from './types/balance';
+import { useBalance } from './hooks/useBalance';
+import { useSync } from './hooks/useSync';
+import type { TimeTrunc } from './types/balance';
 import './App.css';
 
 const DEFAULT_END = dayjs().subtract(1, 'day').format('YYYY-MM-DDTHH:mm');
@@ -18,51 +19,21 @@ function App() {
   const [startDate, setStartDate] = useState(DEFAULT_START);
   const [endDate, setEndDate] = useState(DEFAULT_END);
   const [timeTrunc, setTimeTrunc] = useState<TimeTrunc>('day');
-  const [data, setData] = useState<BalancePoint[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [stale, setStale] = useState(false);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const points = await getBalance({
-        startDate: toIso(startDate),
-        endDate: toIso(endDate),
-        timeTrunc,
-      });
-      setData(points);
-    } catch {
-      setError('Error al cargar los datos. Verifica que el backend esté activo.');
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, timeTrunc]);
+  const params = {
+    startDate: toIso(startDate),
+    endDate: toIso(endDate),
+    timeTrunc,
+  };
 
-  const handleSync = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await triggerSync({
-        startDate: toIso(startDate),
-        endDate: toIso(endDate),
-        timeTrunc,
-      });
-      setStale(result.stale);
-      setLastSyncAt(result.lastSyncAt);
-      await fetchData();
-    } catch {
-      setError('Error al sincronizar con REE.');
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, timeTrunc, fetchData]);
+  const { data = [], isLoading, isError } = useBalance(params);
+  const syncMutation = useSync();
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const loading = isLoading || syncMutation.isPending;
+  const stale = syncMutation.data?.stale ?? false;
+  const lastSyncAt = syncMutation.data?.lastSyncAt ?? null;
+  const syncError = syncMutation.isError ? 'Error al sincronizar con REE.' : null;
+  const fetchError = isError ? 'Error al cargar los datos. Verifica que el backend esté activo.' : null;
 
   return (
     <div className="app">
@@ -82,14 +53,16 @@ function App() {
             setEndDate(endDate);
             setTimeTrunc(timeTrunc);
           }}
-          onSync={handleSync}
+          onSync={() => syncMutation.mutate(params)}
         />
 
-        {error && <div className="error-banner">{error}</div>}
+        {(fetchError || syncError) && (
+          <div className="error-banner">{fetchError ?? syncError}</div>
+        )}
 
-        {loading && <div className="loading">Cargando datos...</div>}
+        {isLoading && <div className="loading">Cargando datos...</div>}
 
-        {!loading && <BalanceChart data={data} />}
+        {!isLoading && <BalanceChart data={data} />}
       </main>
     </div>
   );
