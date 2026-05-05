@@ -7,8 +7,8 @@ import { SyncStatusBadge } from './components/SyncStatusBadge';
 import type { BalancePoint, TimeTrunc } from './types/balance';
 import './App.css';
 
-const DEFAULT_END = dayjs().format('YYYY-MM-DDTHH:mm');
-const DEFAULT_START = dayjs().subtract(1, 'day').format('YYYY-MM-DDTHH:mm');
+const DEFAULT_END = dayjs().subtract(1, 'day').format('YYYY-MM-DDTHH:mm');
+const DEFAULT_START = dayjs().subtract(30, 'day').format('YYYY-MM-DDTHH:mm');
 
 function toIso(local: string): string {
   return new Date(local).toISOString();
@@ -17,7 +17,7 @@ function toIso(local: string): string {
 function App() {
   const [startDate, setStartDate] = useState(DEFAULT_START);
   const [endDate, setEndDate] = useState(DEFAULT_END);
-  const [timeTrunc, setTimeTrunc] = useState<TimeTrunc>('hour');
+  const [timeTrunc, setTimeTrunc] = useState<TimeTrunc>('day');
   const [data, setData] = useState<BalancePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [stale, setStale] = useState(false);

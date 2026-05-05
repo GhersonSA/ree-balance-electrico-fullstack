@@ -10,7 +10,6 @@ interface Props {
 }
 
 const TRUNC_OPTIONS: { value: TimeTrunc; label: string }[] = [
-  { value: 'hour', label: 'Hora' },
   { value: 'day', label: 'Día' },
   { value: 'month', label: 'Mes' },
 ];
