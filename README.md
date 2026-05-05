@@ -1,1 +1,3 @@
 # ree-balance-electrico-fullstack
+
+Prueba técnica en progreso...
